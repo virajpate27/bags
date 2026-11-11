@@ -2,9 +2,9 @@
 import "./globals.css";
 
 export const metadata = {
-  title: "TradeBridge - India's B2B Marketplace",
+  title: "TradeBridge | India's B2B Marketplace",
   description:
-    "Connect with manufacturers, wholesalers, distributors and suppliers across India.",
+    "Discover products, connect with manufacturers, wholesalers, distributors and suppliers across India.",
 };
 
 export default function RootLayout({ children }) {
