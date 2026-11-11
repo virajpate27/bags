@@ -59,7 +59,7 @@ export default function Footer() {
 
       <div className="border-t border-slate-800">
         <div className="mx-auto flex max-w-7xl flex-col justify-between gap-3 px-4 py-6 text-xs text-slate-500 sm:px-6 md:flex-row lg:px-8">
-          <p>© {new Date().getFullYear()} TradeBridge. All rights reserved.</p>
+          <p>© 2026 TradeBridge. All rights reserved.</p>
           <div className="flex gap-5">
             <Link href="/privacy-policy" className="hover:text-white">Privacy Policy</Link>
             <Link href="/terms" className="hover:text-white">Terms & Conditions</Link>
