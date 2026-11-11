@@ -4,18 +4,20 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "prisma generate && next build --webpack",
+    "build": "npx prisma generate && npx prisma db push && next build --webpack",
     "start": "next start",
     "lint": "eslint"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",
+    "@better-auth/prisma-adapter": "^1.7.20",
     "@prisma/client": "^6.19.3",
-     "prisma": "^6.19.3",
+    "better-auth": "^1.7.20",
     "class-variance-authority": "^0.7.1",
     "cn": "^0.5.2",
     "lucide-react": "^1.72.0",
     "next": "16.4.6",
+    "prisma": "^6.19.3",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "shadcn": "^4.23.0",
@@ -27,7 +29,6 @@
     "eslint": "^9",
     "eslint-config-next": "16.4.6",
     "postcss": "^8.5.32",
-   
     "tailwindcss": "4.3.3"
   }
 }
