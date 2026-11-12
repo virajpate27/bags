@@ -113,7 +113,7 @@ model Product {
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
 
-  seller    User           @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  seller    User           @relation(fields: [sellerId], references: [id])
   category  Category       @relation(fields: [categoryId], references: [id])
   images    ProductImage[]
   enquiries Enquiry[]
@@ -132,7 +132,7 @@ model ProductImage {
 
   product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 
-  @@index([productId])
+
 }
 
 model Enquiry {
