@@ -19,7 +19,11 @@ async function getSeller() {
     where: { userId: session.user.id },
   });
 
-  if (!supplier) return { error: "NO_PROFILE" };
+if (!supplier) return { error: "NO_PROFILE" };
+
+if (supplier.status !== "APPROVED") {
+  return { error: "SELLER_NOT_APPROVED" };
+}
 
   return { userId: session.user.id, supplier };
 }
