@@ -238,11 +238,10 @@ export default function ProductDetailContent() {
                         <button
                           key={image.id}
                           onClick={() => setSelectedImage(index)}
-                          className={`h-20 w-20 overflow-hidden rounded-lg border-2 bg-white ${
-                            selectedImage === index
+                          className={`h-20 w-20 overflow-hidden rounded-lg border-2 bg-white ${selectedImage === index
                               ? "border-amber-400"
                               : "border-slate-200"
-                          }`}
+                            }`}
                         >
                           <img
                             src={image.imageUrl}
@@ -365,6 +364,15 @@ export default function ProductDetailContent() {
                     >
                       Contact Supplier
                     </button>
+
+                  {supplier?.id && (
+  <Link
+    href={`/suppliers/${supplier.id}`}
+    className="mt-3 block w-full rounded-lg bg-slate-900 px-4 py-3 text-center text-sm font-bold text-white hover:bg-slate-800"
+  >
+    View Company Profile
+  </Link>
+)}
                   </div>
                 </aside>
               </div>

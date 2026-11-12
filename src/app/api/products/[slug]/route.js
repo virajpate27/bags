@@ -34,6 +34,7 @@ export async function GET(request, { params }) {
             name: true,
             supplierProfile: {
               select: {
+                 id: true,
                 companyName: true,
                 businessType: true,
                 description: true,
