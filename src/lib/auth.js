@@ -16,16 +16,16 @@ export const auth = betterAuth({
     maxPasswordLength: 128,
   },
 
-  user: {
-    additionalFields: {
-      role: {
-        type: ["BUYER", "SELLER", "ADMIN"],
-        required: false,
-        defaultValue: "BUYER",
-        input: false,
-      },
+ user: {
+  additionalFields: {
+    role: {
+      type: "string",
+      required: false,
+      defaultValue: "BUYER",
+      input: false,
     },
   },
+},
 
   trustedOrigins: [
     process.env.BETTER_AUTH_URL,
