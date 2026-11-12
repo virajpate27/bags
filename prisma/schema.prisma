@@ -40,6 +40,12 @@ enum RequirementStatus {
   CLOSED
 }
 
+enum SellerStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 model User {
   id            String   @id @default(cuid())
   name          String
@@ -61,6 +67,7 @@ model User {
   accounts        Account[]
 }
 
+
 model SupplierProfile {
   id           String       @id @default(cuid())
   userId       String       @unique
@@ -73,11 +80,13 @@ model SupplierProfile {
   pincode      String?
   website      String?
   isVerified   Boolean      @default(false)
+  status       SellerStatus @default(PENDING)
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
+
 
 model Category {
   id          Int      @id @default(autoincrement())
@@ -221,3 +230,4 @@ model Verification {
 
   @@index([identifier])
 }
+
