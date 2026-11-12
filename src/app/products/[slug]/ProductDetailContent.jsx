@@ -3,6 +3,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
+import EnquiryForm from "@/components/products/EnquiryForm";
 
 import Link from "next/link";
 import {
@@ -375,6 +376,7 @@ export default function ProductDetailContent() {
                     )}
                   </div>
                 </aside>
+                <EnquiryForm productId={product.id} />
               </div>
 
               {/* Related Products */}

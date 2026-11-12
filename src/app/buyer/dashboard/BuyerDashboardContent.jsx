@@ -44,9 +44,8 @@ function StatusBadge({ status }) {
   };
 
   return (
-    <span className={`rounded-full px-3 py-1 text-xs font-semibold ${
-      styles[status] || "bg-slate-100 text-slate-600"
-    }`}>
+    <span className={`rounded-full px-3 py-1 text-xs font-semibold ${styles[status] || "bg-slate-100 text-slate-600"
+      }`}>
       {(status || "UNKNOWN").replaceAll("_", " ")}
     </span>
   );
@@ -269,11 +268,10 @@ export default function BuyerDashboardContent() {
                       setMessage("");
                       setError("");
                     }}
-                    className={`flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left text-sm font-semibold transition ${
-                      activeTab === item.id
-                        ? "bg-amber-100 text-slate-900"
-                        : "text-slate-600 hover:bg-slate-50"
-                    }`}
+                    className={`flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left text-sm font-semibold transition ${activeTab === item.id
+                      ? "bg-amber-100 text-slate-900"
+                      : "text-slate-600 hover:bg-slate-50"
+                      }`}
                   >
                     <Icon size={18} />
                     {item.label}
@@ -396,6 +394,13 @@ export default function BuyerDashboardContent() {
                 My Enquiries
               </h2>
 
+              <Link
+                href="/buyer/enquiries"
+                className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+              >
+                View All Enquiries
+              </Link>
+
               {data.enquiries.length === 0 ? (
                 <p className="mt-5 text-sm text-slate-500">
                   No enquiries found. Browse products to connect with suppliers.
@@ -448,11 +453,20 @@ export default function BuyerDashboardContent() {
           {/* Requirements */}
           {activeTab === "requirements" && (
             <section className="rounded-xl border border-slate-200 bg-white p-6">
+
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <h2 className="font-bold text-slate-900">
                   My Requirements
                 </h2>
+
+                <Link
+                  href="/buyer/requirements"
+                  className="rounded-lg bg-amber-400 px-4 py-2 text-sm font-bold text-slate-950 transition hover:bg-amber-500"
+                >
+                  + Post Requirement
+                </Link>
               </div>
+
 
               {data.requirements.length === 0 ? (
                 <div className="py-10 text-center">
