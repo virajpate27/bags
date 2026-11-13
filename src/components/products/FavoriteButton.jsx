@@ -85,7 +85,7 @@ export default function FavoriteButton({ productId, className = "" }) {
   }
 
   return (
-    <div className={`relative ${className}`}>
+    <div className={`${className}`}>
       <button
         type="button"
         onClick={toggleFavorite}

@@ -24,7 +24,7 @@ const emptyForm = {
   price: "",
   unit: "Piece",
   minimumOrderQty: "1",
-  imageUrls: [""],
+  imageUrls: [],
 };
 
 function formatPrice(price) {
@@ -38,6 +38,7 @@ function formatPrice(price) {
 export default function SellerDashboardContent() {
   const [data, setData] = useState(null);
   const [form, setForm] = useState(emptyForm);
+  const [imageFiles, setImageFiles] = useState([]);
   const [editingId, setEditingId] = useState(null);
   const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -76,6 +77,7 @@ export default function SellerDashboardContent() {
   function openAddForm() {
     setEditingId(null);
     setForm(emptyForm);
+    setImageFiles([]);
     setMessage("");
     setError("");
     setShowForm(true);
@@ -93,38 +95,30 @@ export default function SellerDashboardContent() {
       minimumOrderQty: String(product.minimumOrderQty || 1),
       imageUrls: product.images?.length
         ? product.images.map((image) => image.imageUrl)
-        : [""],
+        : [],
     });
+    setImageFiles([]);
 
     setMessage("");
     setError("");
     setShowForm(true);
   }
 
-  function updateImage(index, value) {
-    setForm((previous) => ({
-      ...previous,
-      imageUrls: previous.imageUrls.map((url, i) =>
-        i === index ? value : url
-      ),
-    }));
+  function handleImageSelection(event) {
+    const selected = Array.from(event.target.files || []);
+    setImageFiles((previous) => [...previous, ...selected].slice(0, Math.max(0, 8 - form.imageUrls.length - previous.length)));
+    event.target.value = "";
   }
 
-  function addImageField() {
-    setForm((previous) => ({
-      ...previous,
-      imageUrls:
-        previous.imageUrls.length < 8
-          ? [...previous.imageUrls, ""]
-          : previous.imageUrls,
-    }));
-  }
-
-  function removeImageField(index) {
+  function removeExistingImage(index) {
     setForm((previous) => ({
       ...previous,
       imageUrls: previous.imageUrls.filter((_, i) => i !== index),
     }));
+  }
+
+  function removeSelectedImage(index) {
+    setImageFiles((previous) => previous.filter((_, i) => i !== index));
   }
 
   async function saveProduct(e) {
@@ -134,9 +128,28 @@ export default function SellerDashboardContent() {
     setMessage("");
 
     try {
+      let uploadedImageUrls = [];
+
+      if (imageFiles.length) {
+        const uploadData = new FormData();
+        imageFiles.forEach((file) => uploadData.append("images", file));
+
+        const uploadResponse = await fetch("/api/seller/product-images", {
+          method: "POST",
+          body: uploadData,
+        });
+        const uploadResult = await uploadResponse.json();
+
+        if (!uploadResponse.ok) {
+          throw new Error(uploadResult.message || "Unable to upload product images.");
+        }
+
+        uploadedImageUrls = (uploadResult.images || []).map((image) => image.url);
+      }
+
       const payload = {
         ...form,
-        imageUrls: form.imageUrls.filter((url) => url.trim()),
+        imageUrls: [...form.imageUrls, ...uploadedImageUrls].slice(0, 8),
       };
 
       const response = await fetch(
@@ -159,6 +172,7 @@ export default function SellerDashboardContent() {
       setShowForm(false);
       setEditingId(null);
       setForm(emptyForm);
+      setImageFiles([]);
       setMessage(result.message || "Product saved successfully.");
 
       await loadProducts();
@@ -469,49 +483,59 @@ export default function SellerDashboardContent() {
               </div>
 
               <div className="md:col-span-2">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <label className="text-sm font-semibold text-slate-700">
-                    Product Image URLs (maximum 8)
-                  </label>
-
-                  <button
-                    type="button"
-                    onClick={addImageField}
-                    disabled={form.imageUrls.length >= 8}
-                    className="text-sm font-semibold text-amber-600 disabled:opacity-40"
-                  >
-                    + Add Image URL
-                  </button>
-                </div>
-
-                <p className="mt-1 text-xs text-slate-500">
-                  Paste a publicly accessible HTTP or HTTPS image URL.
+                <label className="mb-2 block text-sm font-semibold text-slate-700">
+                  Upload Product Images (maximum 8)
+                </label>
+                <p className="mb-3 text-xs text-slate-500">
+                  JPG, PNG or WEBP. Maximum 5 MB per image. You can select multiple images.
                 </p>
 
-                <div className="mt-3 space-y-3">
-                  {form.imageUrls.map((url, index) => (
-                    <div key={index} className="flex gap-2">
-                      <input
-                        type="url"
-                        value={url}
-                        onChange={(e) => updateImage(index, e.target.value)}
-                        placeholder="https://example.com/product-image.jpg"
-                        className="min-w-0 flex-1 rounded-lg border border-slate-300 px-4 py-3 text-sm outline-none focus:border-amber-400"
-                      />
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  multiple
+                  disabled={form.imageUrls.length + imageFiles.length >= 8}
+                  onChange={handleImageSelection}
+                  className="block w-full rounded-lg border border-dashed border-slate-300 bg-slate-50 p-4 text-sm file:mr-4 file:rounded-lg file:border-0 file:bg-amber-100 file:px-4 file:py-2 file:font-semibold file:text-slate-900"
+                />
 
-                      {form.imageUrls.length > 1 && (
+                {(form.imageUrls.length > 0 || imageFiles.length > 0) && (
+                  <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                    {form.imageUrls.map((url, index) => (
+                      <div key={`${url}-${index}`} className="relative overflow-hidden rounded-lg border border-slate-200 bg-white">
+                        <img src={url} alt={`Product image ${index + 1}`} className="h-28 w-full object-cover" />
                         <button
                           type="button"
-                          onClick={() => removeImageField(index)}
-                          className="rounded-lg border border-red-200 px-3 text-red-600 hover:bg-red-50"
-                          aria-label="Remove image URL"
+                          onClick={() => removeExistingImage(index)}
+                          className="absolute right-2 top-2 rounded-full bg-white p-1.5 text-red-600 shadow"
+                          aria-label="Remove existing image"
                         >
-                          <X size={17} />
+                          <X size={15} />
                         </button>
-                      )}
-                    </div>
-                  ))}
-                </div>
+                        <p className="truncate px-2 py-1 text-xs text-slate-500">Saved image</p>
+                      </div>
+                    ))}
+
+                    {imageFiles.map((file, index) => (
+                      <div key={`${file.name}-${index}`} className="relative overflow-hidden rounded-lg border border-amber-200 bg-amber-50 p-3">
+                        <div className="flex h-20 items-center justify-center text-amber-700"><Package size={28} /></div>
+                        <button
+                          type="button"
+                          onClick={() => removeSelectedImage(index)}
+                          className="absolute right-2 top-2 rounded-full bg-white p-1.5 text-red-600 shadow"
+                          aria-label="Remove selected image"
+                        >
+                          <X size={15} />
+                        </button>
+                        <p className="truncate text-xs font-medium text-slate-700">{file.name}</p>
+                        <p className="text-xs text-slate-500">Ready to upload</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <p className="mt-2 text-xs text-slate-500">
+                  {form.imageUrls.length + imageFiles.length} of 8 images selected.
+                </p>
               </div>
 
               <div className="flex flex-wrap gap-3 md:col-span-2">

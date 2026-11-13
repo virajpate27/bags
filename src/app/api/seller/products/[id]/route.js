@@ -1,47 +1,61 @@
-import { NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
-import {
-  requireApprovedSeller,
-  getAuthorizationError,
-} from "@/lib/permissions";
 
-function authorizationResponse(error) {
-  const result = getAuthorizationError(error);
+import { NextResponse } from "next/server";
+import { headers } from "next/headers";
+import { auth } from "@/lib/auth";
+import prisma from "@/lib/prisma";
+import { cleanProductImageUrls } from "@/lib/product-images";
+
+async function getSeller() {
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
+
+  if (!session) return { error: "UNAUTHORIZED" };
+
+  if (session.user.role !== "SELLER") {
+    return { error: "FORBIDDEN" };
+  }
+
+  const supplier = await prisma.supplierProfile.findUnique({
+    where: { userId: session.user.id },
+  });
+
+  if (!supplier) return { error: "NO_PROFILE" };
+
+if (supplier.status !== "APPROVED") {
+  return { error: "SELLER_NOT_APPROVED" };
+}
+
+  return { userId: session.user.id };
+}
+
+function authError(error) {
+  const status = error === "UNAUTHORIZED" ? 401 : 403;
+  const message = error === "UNAUTHORIZED"
+    ? "Please login first."
+    : "Seller access required or business profile missing.";
+
   return NextResponse.json(
-    { success: false, message: result.message },
-    { status: result.status }
+    { success: false, message },
+    { status }
   );
 }
 
-function cleanImageUrls(value) {
-  if (!Array.isArray(value)) return [];
-
-  return [...new Set(
-    value
-      .filter((url) => typeof url === "string")
-      .map((url) => url.trim())
-      .filter((url) => {
-        try {
-          const parsed = new URL(url);
-          return parsed.protocol === "https:" || parsed.protocol === "http:";
-        } catch {
-          return false;
-        }
-      })
-  )].slice(0, 8);
-}
 
 export async function PATCH(request, { params }) {
   try {
-    const seller = await requireApprovedSeller();
-    if (seller.error) return authorizationResponse(seller.error);
+    const seller = await getSeller();
+
+    if (seller.error) return authError(seller.error);
 
     const { id } = await params;
     const body = await request.json();
 
     const existing = await prisma.product.findFirst({
-      where: { id, sellerId: seller.user.id },
-      select: { id: true },
+      where: {
+        id,
+        sellerId: seller.userId,
+      },
     });
 
     if (!existing) {
@@ -81,7 +95,10 @@ export async function PATCH(request, { params }) {
       );
     }
 
-    if (priceInput !== null && (!Number.isFinite(priceInput) || priceInput < 0)) {
+    if (
+      priceInput !== null &&
+      (!Number.isFinite(priceInput) || priceInput < 0)
+    ) {
       return NextResponse.json(
         { success: false, message: "Enter a valid price." },
         { status: 400 }
@@ -90,7 +107,6 @@ export async function PATCH(request, { params }) {
 
     const category = await prisma.category.findUnique({
       where: { id: categoryId },
-      select: { id: true },
     });
 
     if (!category) {
@@ -100,10 +116,12 @@ export async function PATCH(request, { params }) {
       );
     }
 
-    const imageUrls = cleanImageUrls(body.imageUrls);
+    const imageUrls = cleanProductImageUrls(body.imageUrls);
 
     const product = await prisma.$transaction(async (tx) => {
-      await tx.productImage.deleteMany({ where: { productId: id } });
+      await tx.productImage.deleteMany({
+        where: { productId: id },
+      });
 
       return tx.product.update({
         where: { id },
@@ -118,7 +136,10 @@ export async function PATCH(request, { params }) {
             create: imageUrls.map((imageUrl) => ({ imageUrl })),
           },
         },
-        include: { category: true, images: true },
+        include: {
+          category: true,
+          images: true,
+        },
       });
     });
 
@@ -132,6 +153,7 @@ export async function PATCH(request, { params }) {
     });
   } catch (error) {
     console.error("Seller product PATCH error:", error);
+
     return NextResponse.json(
       { success: false, message: "Unable to update product." },
       { status: 500 }
@@ -141,12 +163,17 @@ export async function PATCH(request, { params }) {
 
 export async function DELETE(request, { params }) {
   try {
-    const seller = await requireApprovedSeller();
-    if (seller.error) return authorizationResponse(seller.error);
+    const seller = await getSeller();
+
+    if (seller.error) return authError(seller.error);
 
     const { id } = await params;
+
     const product = await prisma.product.findFirst({
-      where: { id, sellerId: seller.user.id },
+      where: {
+        id,
+        sellerId: seller.userId,
+      },
       select: { id: true },
     });
 
@@ -157,7 +184,9 @@ export async function DELETE(request, { params }) {
       );
     }
 
-    await prisma.product.delete({ where: { id } });
+    await prisma.product.delete({
+      where: { id },
+    });
 
     return NextResponse.json({
       success: true,
@@ -165,6 +194,7 @@ export async function DELETE(request, { params }) {
     });
   } catch (error) {
     console.error("Seller product DELETE error:", error);
+
     return NextResponse.json(
       { success: false, message: "Unable to delete product." },
       { status: 500 }
