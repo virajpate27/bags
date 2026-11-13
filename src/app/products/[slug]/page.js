@@ -4,13 +4,20 @@ import prisma from "@/lib/prisma";
 import ProductDetailContent from "./ProductDetailContent";
 
 const siteUrl =
-  process.env.NEXT_PUBLIC_SITE_URL || "https://lightseagreen-okapi-247533.hostingersite.com";
+  process.env.NEXT_PUBLIC_SITE_URL || "https://yourdomain.com";
 
 async function getProduct(slug) {
   return prisma.product.findFirst({
     where: {
       slug,
       status: "ACTIVE",
+      seller: {
+        supplierProfile: {
+          is: {
+            status: "APPROVED",
+          },
+        },
+      },
     },
     select: {
       name: true,

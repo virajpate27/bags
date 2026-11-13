@@ -39,6 +39,13 @@ async function getHomepageData() {
     prisma.product.findMany({
       where: {
         status: "ACTIVE",
+        seller: {
+          supplierProfile: {
+            is: {
+              status: "APPROVED",
+            },
+          },
+        },
       },
       include: {
         category: true,

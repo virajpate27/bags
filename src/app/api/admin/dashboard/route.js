@@ -35,7 +35,18 @@ export async function GET() {
       prisma.supplierProfile.count({ where: { status: "PENDING" } }),
       prisma.supplierProfile.count({ where: { status: "APPROVED" } }),
       prisma.product.count(),
-      prisma.product.count({ where: { status: "ACTIVE" } }),
+      prisma.product.count({
+        where: {
+          status: "ACTIVE",
+          seller: {
+            supplierProfile: {
+              is: {
+                status: "APPROVED",
+              },
+            },
+          },
+        },
+      }),
       prisma.product.count({ where: { status: "DRAFT" } }),
       prisma.category.count(),
 

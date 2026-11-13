@@ -61,8 +61,32 @@ export async function GET(request) {
       : "latest";
 
     // 4. Build Prisma filters
+    const supplierProfileFilter = {
+      status: "APPROVED",
+    };
+
+    if (location) {
+      supplierProfileFilter.OR = [
+        {
+          city: {
+            contains: location,
+          },
+        },
+        {
+          state: {
+            contains: location,
+          },
+        },
+      ];
+    }
+
     const where = {
       status: "ACTIVE",
+      seller: {
+        supplierProfile: {
+          is: supplierProfileFilter,
+        },
+      },
     };
 
     // Keyword search
@@ -88,27 +112,7 @@ export async function GET(request) {
       };
     }
 
-    // Location filter
-    if (location) {
-      where.seller = {
-        supplierProfile: {
-          is: {
-            OR: [
-              {
-                city: {
-                  contains: location,
-                },
-              },
-              {
-                state: {
-                  contains: location,
-                },
-              },
-            ],
-          },
-        },
-      };
-    }
+    // Location filtering is combined with the approved-supplier condition above.
 
     // Price filter
     if (minPrice !== null || maxPrice !== null) {

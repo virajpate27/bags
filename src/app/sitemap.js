@@ -8,6 +8,13 @@ export default async function sitemap() {
   const products = await prisma.product.findMany({
     where: {
       status: "ACTIVE",
+      seller: {
+        supplierProfile: {
+          is: {
+            status: "APPROVED",
+          },
+        },
+      },
     },
     select: {
       slug: true,

@@ -34,6 +34,13 @@ async function getProducts(searchParams) {
 
   const where = {
     status: "ACTIVE",
+    seller: {
+      supplierProfile: {
+        is: {
+          status: "APPROVED",
+        },
+      },
+    },
     ...(q && {
       name: {
         contains: q,
