@@ -81,7 +81,7 @@ export default function FavoriteButton({ productId, className = "" }) {
       setMessage(error.message || "Something went wrong.");
     } finally {
       setSaving(false);
-    }
+    } 
   }
 
   return (
