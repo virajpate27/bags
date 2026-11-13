@@ -1,22 +1,20 @@
 
-"use client";
-
-import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import {
   Search,
-  MapPin,
-  SlidersHorizontal,
   Package,
-  ChevronLeft,
-  ChevronRight,
+  MapPin,
   Store,
+  ArrowRight,
+  SlidersHorizontal,
 } from "lucide-react";
+
+import prisma from "@/lib/prisma";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 
 export const metadata = {
-  title: "Browse Products from Indian Suppliers",
+  title: "Browse Products from Indian Manufacturers and Suppliers",
   description:
     "Explore products from manufacturers, wholesalers and distributors across India. Find suppliers and request competitive quotations on TradeBridge.",
   alternates: {
@@ -24,350 +22,352 @@ export const metadata = {
   },
 };
 
-export default function ProductsPage() {
-  const [products, setProducts] = useState([]);
-  const [categories, setCategories] = useState([]);
+async function getProducts(searchParams) {
+  const q = typeof searchParams.q === "string"
+    ? searchParams.q.trim()
+    : "";
 
-  const [search, setSearch] = useState("");
-  const [location, setLocation] = useState("");
-  const [category, setCategory] = useState("");
-  const [minPrice, setMinPrice] = useState("");
-  const [maxPrice, setMaxPrice] = useState("");
-  const [sort, setSort] = useState("latest");
+  const categorySlug =
+    typeof searchParams.category === "string"
+      ? searchParams.category
+      : "";
 
-  const [page, setPage] = useState(1);
-  const [pagination, setPagination] = useState({
-    page: 1,
-    total: 0,
-    totalPages: 0,
-  });
+  const where = {
+    status: "ACTIVE",
+    ...(q && {
+      name: {
+        contains: q,
+      },
+    }),
+    ...(categorySlug && {
+      category: {
+        slug: categorySlug,
+      },
+    }),
+  };
 
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [products, categories] = await Promise.all([
+    prisma.product.findMany({
+      where,
+      include: {
+        category: true,
+        images: {
+          take: 1,
+        },
+        seller: {
+          select: {
+            name: true,
+            supplierProfile: {
+              select: {
+                companyName: true,
+                city: true,
+                state: true,
+                isVerified: true,
+                status: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    }),
 
-  const fetchProducts = useCallback(async () => {
-    setLoading(true);
-    setError("");
+    prisma.category.findMany({
+      orderBy: {
+        name: "asc",
+      },
+    }),
+  ]);
 
-    try {
-      const params = new URLSearchParams({
-        page: String(page),
-        sort,
-      });
+  return { products, categories, q, categorySlug };
+}
 
-      if (search.trim()) params.set("search", search.trim());
-      if (location.trim()) params.set("location", location.trim());
-      if (category) params.set("category", category);
-      if (minPrice) params.set("minPrice", minPrice);
-      if (maxPrice) params.set("maxPrice", maxPrice);
-
-      const response = await fetch(`/api/products?${params.toString()}`);
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.message || "Unable to load products.");
-      }
-
-      setProducts(result.products || []);
-      setCategories(result.categories || []);
-      setPagination(result.pagination);
-    } catch (err) {
-      setError(err.message || "Something went wrong.");
-      setProducts([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [page, search, location, category, minPrice, maxPrice, sort]);
-
-  useEffect(() => {
-    fetchProducts();
-  }, [fetchProducts]);
-
-  function resetFilters() {
-    setSearch("");
-    setLocation("");
-    setCategory("");
-    setMinPrice("");
-    setMaxPrice("");
-    setSort("latest");
-    setPage(1);
+function formatPrice(price) {
+  if (price === null || price === undefined) {
+    return "Price on request";
   }
 
- function applyFilters(e) {
-  e.preventDefault();
-  setPage(1);
+  return `₹${Number(price).toLocaleString("en-IN")}`;
 }
+
+function getSupplierName(seller) {
+  return (
+    seller?.supplierProfile?.companyName ||
+    seller?.name ||
+    "Supplier"
+  );
+}
+
+function getSupplierLocation(supplier) {
+  return [supplier?.city, supplier?.state]
+    .filter(Boolean)
+    .join(", ");
+}
+
+function ProductCard({ product }) {
+  const image = product.images?.[0]?.imageUrl;
+  const supplier = product.seller?.supplierProfile;
+  const location = getSupplierLocation(supplier);
+
+  return (
+    <article className="group overflow-hidden rounded-xl border border-slate-200 bg-white transition duration-300 hover:-translate-y-1 hover:border-amber-300 hover:shadow-lg">
+      <Link href={`/products/${product.slug}`}>
+        <div className="relative flex aspect-[4/3] items-center justify-center overflow-hidden bg-slate-50 p-5">
+          {image ? (
+            <img
+              src={image}
+              alt={product.name}
+              className="h-full w-full object-contain transition duration-300 group-hover:scale-105"
+            />
+          ) : (
+            <Package
+              size={52}
+              strokeWidth={1.2}
+              className="text-slate-300"
+            />
+          )}
+
+          {supplier?.isVerified && (
+            <span className="absolute left-3 top-3 rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700">
+              Verified Supplier
+            </span>
+          )}
+        </div>
+      </Link>
+
+      <div className="p-4">
+        {product.category?.name && (
+          <p className="mb-2 text-xs font-semibold text-amber-600">
+            {product.category.name}
+          </p>
+        )}
+
+        <Link href={`/products/${product.slug}`}>
+          <h2 className="line-clamp-2 min-h-12 font-semibold text-slate-900 transition group-hover:text-amber-600">
+            {product.name}
+          </h2>
+        </Link>
+
+        <p className="mt-3 text-lg font-bold text-slate-900">
+          {formatPrice(product.price)}
+          {product.price !== null && product.unit && (
+            <span className="ml-1 text-xs font-normal text-slate-500">
+              / {product.unit}
+            </span>
+          )}
+        </p>
+
+        <p className="mt-2 text-xs text-slate-500">
+          Min. Order: {product.minimumOrderQty || 1}
+          {product.unit ? ` ${product.unit}` : " Units"}
+        </p>
+
+        <div className="mt-4 border-t border-slate-100 pt-4">
+          <p className="flex items-center gap-2 text-sm font-medium text-slate-700">
+            <Store size={15} className="shrink-0 text-slate-400" />
+            <span className="truncate">
+              {getSupplierName(product.seller)}
+            </span>
+          </p>
+
+          {location && (
+            <p className="mt-2 flex items-center gap-2 text-xs text-slate-500">
+              <MapPin size={14} className="shrink-0" />
+              {location}
+            </p>
+          )}
+        </div>
+
+        <Link
+          href={`/products/${product.slug}`}
+          className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg bg-amber-400 px-4 py-2.5 text-sm font-bold text-slate-900 transition hover:bg-amber-500"
+        >
+          View Details
+          <ArrowRight size={16} />
+        </Link>
+      </div>
+    </article>
+  );
+}
+
+export default async function ProductsPage({ searchParams }) {
+  const params = await searchParams;
+  const { products, categories, q, categorySlug } =
+    await getProducts(params || {});
 
   return (
     <>
       <Header />
 
       <main className="min-h-screen bg-slate-50">
-        <div className="bg-slate-950 px-4 py-12 text-white">
+        {/* Page Hero */}
+        <section className="bg-slate-900 px-4 py-14 text-white sm:py-20">
           <div className="mx-auto max-w-7xl">
-            <p className="text-sm font-semibold text-amber-400">
-              TRADEBRIDGE MARKETPLACE
+            <p className="mb-3 text-sm font-semibold uppercase tracking-wider text-amber-400">
+              TradeBridge Marketplace
             </p>
 
-            <h1 className="mt-3 text-3xl font-bold sm:text-4xl">
-              Explore Business Products
+            <h1 className="max-w-3xl text-3xl font-bold leading-tight sm:text-4xl lg:text-5xl">
+              Discover Products from
+              <span className="text-amber-400">
+                {" "}Trusted Indian Suppliers
+              </span>
             </h1>
 
-            <p className="mt-3 text-sm text-slate-300">
-              Discover products and connect with suppliers across India.
+            <p className="mt-5 max-w-2xl text-sm leading-7 text-slate-300 sm:text-base">
+              Explore products from manufacturers, wholesalers and
+              distributors. Connect with suppliers and request the
+              best quotations for your business.
             </p>
-          </div>
-        </div>
 
-        <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-          <div className="grid gap-8 lg:grid-cols-4">
+            {/* Search Form */}
+            <form
+              action="/products"
+              method="GET"
+              className="mt-8 flex max-w-2xl flex-col gap-3 rounded-xl bg-white p-2 sm:flex-row"
+            >
+              {categorySlug && (
+                <input
+                  type="hidden"
+                  name="category"
+                  value={categorySlug}
+                />
+              )}
 
-            {/* Filters */}
-            <aside className="h-fit rounded-2xl border border-slate-200 bg-white p-5">
-              <div className="flex items-center justify-between">
-                <h2 className="flex items-center gap-2 font-bold text-slate-900">
-                  <SlidersHorizontal size={18} />
-                  Filters
-                </h2>
+              <div className="flex flex-1 items-center gap-3 px-3">
+                <Search
+                  size={20}
+                  className="shrink-0 text-slate-400"
+                />
 
-                <button
-                  onClick={resetFilters}
-                  className="text-xs font-semibold text-amber-600"
-                >
-                  Clear All
-                </button>
+                <input
+                  type="search"
+                  name="q"
+                  defaultValue={q}
+                  placeholder="Search products, materials..."
+                  className="w-full border-0 bg-transparent py-3 text-sm text-slate-900 outline-none placeholder:text-slate-400 focus:ring-0"
+                />
               </div>
 
-              <form onSubmit={applyFilters} className="mt-6 space-y-6">
-                <div>
-                  <label className="mb-2 block text-sm font-semibold text-slate-700">
-                    Search Products
-                  </label>
+              <button
+                type="submit"
+                className="rounded-lg bg-amber-400 px-7 py-3 text-sm font-bold text-slate-900 transition hover:bg-amber-500"
+              >
+                Search Products
+              </button>
+            </form>
+          </div>
+        </section>
 
-                  <input
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    placeholder="Product name..."
-                    className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-amber-400"
-                  />
-                </div>
+        {/* Products Section */}
+        <section className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+          <div className="grid items-start gap-8 lg:grid-cols-4">
+            {/* Sidebar Filters */}
+            <aside className="rounded-xl border border-slate-200 bg-white p-5 lg:col-span-1">
+              <div className="flex items-center gap-2">
+                <SlidersHorizontal
+                  size={19}
+                  className="text-amber-500"
+                />
+                <h2 className="font-bold text-slate-900">
+                  Categories
+                </h2>
+              </div>
 
-                <div>
-                  <label className="mb-2 block text-sm font-semibold text-slate-700">
-                    Category
-                  </label>
-
-                  <select
-                    value={category}
-                    onChange={(e) => setCategory(e.target.value)}
-                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-amber-400"
-                  >
-                    <option value="">All Categories</option>
-
-                    {categories.map((item) => (
-                      <option key={item.id} value={item.slug}>
-                        {item.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="mb-2 block text-sm font-semibold text-slate-700">
-                    Location
-                  </label>
-
-                  <input
-                    value={location}
-                    onChange={(e) => setLocation(e.target.value)}
-                    placeholder="City or state..."
-                    className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-amber-400"
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-2 block text-sm font-semibold text-slate-700">
-                    Minimum Price (₹)
-                  </label>
-
-                  <input
-                    type="number"
-                    min="0"
-                    value={minPrice}
-                    onChange={(e) => setMinPrice(e.target.value)}
-                    placeholder="Min price"
-                    className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-amber-400"
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-2 block text-sm font-semibold text-slate-700">
-                    Maximum Price (₹)
-                  </label>
-
-                  <input
-                    type="number"
-                    min="0"
-                    value={maxPrice}
-                    onChange={(e) => setMaxPrice(e.target.value)}
-                    placeholder="Max price"
-                    className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-amber-400"
-                  />
-                </div>
-
-                <button
-                  type="submit"
-                  className="w-full rounded-lg bg-amber-400 px-4 py-3 text-sm font-bold text-slate-950 hover:bg-amber-500"
+              <div className="mt-5 space-y-1">
+                <Link
+                  href="/products"
+                  className={`block rounded-lg px-3 py-2.5 text-sm transition ${
+                    !categorySlug
+                      ? "bg-amber-50 font-semibold text-amber-700"
+                      : "text-slate-600 hover:bg-slate-50"
+                  }`}
                 >
-                  Apply Filters
-                </button>
-              </form>
+                  All Products
+                </Link>
+
+                {categories.map((category) => (
+                  <Link
+                    key={category.id}
+                    href={`/products?category=${encodeURIComponent(category.slug)}`}
+                    className={`block rounded-lg px-3 py-2.5 text-sm transition ${
+                      categorySlug === category.slug
+                        ? "bg-amber-50 font-semibold text-amber-700"
+                        : "text-slate-600 hover:bg-slate-50"
+                    }`}
+                  >
+                    {category.name}
+                  </Link>
+                ))}
+              </div>
             </aside>
 
-            {/* Product Results */}
-            <section className="lg:col-span-3">
-              <div className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+            {/* Product Grid */}
+            <div className="lg:col-span-3">
+              <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <h2 className="text-xl font-bold text-slate-900">
-                    All Products
+                    {categorySlug
+                      ? categories.find(
+                          (item) => item.slug === categorySlug
+                        )?.name || "Products"
+                      : "Explore Products"}
                   </h2>
 
                   <p className="mt-1 text-sm text-slate-500">
-                    {pagination.total} products found
+                    {products.length} product
+                    {products.length === 1 ? "" : "s"} found
+                    {q ? ` for "${q}"` : ""}
                   </p>
                 </div>
 
-                <select
-                  value={sort}
-                  onChange={(e) => {
-                    setSort(e.target.value);
-                    setPage(1);
-                  }}
-                  className="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm outline-none"
-                >
-                  <option value="latest">Latest Products</option>
-                  <option value="price-low">Price: Low to High</option>
-                  <option value="price-high">Price: High to Low</option>
-                  <option value="name">Name: A to Z</option>
-                </select>
+                {(q || categorySlug) && (
+                  <Link
+                    href="/products"
+                    className="text-sm font-semibold text-amber-600 hover:text-amber-700"
+                  >
+                    Clear Filters
+                  </Link>
+                )}
               </div>
 
-              {loading ? (
-                <div className="rounded-xl border border-slate-200 bg-white p-16 text-center">
-                  <p className="text-sm text-slate-500">Loading products...</p>
-                </div>
-              ) : error ? (
-                <div role="alert" className="rounded-xl bg-red-50 p-6 text-sm text-red-700">
-                  {error}
-                </div>
-              ) : products.length === 0 ? (
-                <div className="rounded-xl border border-slate-200 bg-white p-16 text-center">
-                  <Package className="mx-auto text-slate-300" size={42} />
-                  <h3 className="mt-4 font-bold text-slate-800">
-                    No products found
-                  </h3>
-                  <p className="mt-2 text-sm text-slate-500">
-                    Try changing your search or filters.
-                  </p>
-                  <button
-                    onClick={resetFilters}
-                    className="mt-5 text-sm font-semibold text-amber-600"
-                  >
-                    Clear filters
-                  </button>
-                </div>
-              ) : (
+              {products.length > 0 ? (
                 <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
                   {products.map((product) => (
-                    <article
+                    <ProductCard
                       key={product.id}
-                      className="overflow-hidden rounded-xl border border-slate-200 bg-white transition hover:-translate-y-1 hover:shadow-lg"
-                    >
-                      <div className="flex h-44 items-center justify-center bg-slate-100">
-                        {product.images?.[0]?.imageUrl ? (
-                          <img
-                            src={product.images[0].imageUrl}
-                            alt={product.name}
-                            className="h-full w-full object-cover"
-                          />
-                        ) : (
-                          <Package size={45} className="text-slate-300" />
-                        )}
-                      </div>
-
-                      <div className="p-5">
-                        <p className="text-xs font-semibold text-amber-600">
-                          {product.category.name}
-                        </p>
-
-                        <h3 className="mt-2 min-h-12 font-bold text-slate-900">
-                          {product.name}
-                        </h3>
-
-                        <p className="mt-3 text-lg font-bold text-slate-900">
-                          {product.price
-                            ? `₹${Number(product.price).toLocaleString("en-IN")}`
-                            : "Price on request"}
-                          {product.price && product.unit
-                            ? ` / ${product.unit}`
-                            : ""}
-                        </p>
-
-                        <p className="mt-3 flex items-center gap-2 text-sm text-slate-600">
-                          <Store size={15} />
-                          {product.seller.supplierProfile?.companyName ||
-                            product.seller.name}
-                        </p>
-
-                        <p className="mt-2 flex items-center gap-2 text-xs text-slate-500">
-                          <MapPin size={14} />
-                          {[
-                            product.seller.supplierProfile?.city,
-                            product.seller.supplierProfile?.state,
-                          ].filter(Boolean).join(", ") || "India"}
-                        </p>
-
-                        <Link
-                          href={`/products/${product.slug}`}
-                          className="mt-5 block rounded-lg border border-amber-400 px-4 py-2.5 text-center text-sm font-semibold text-slate-900 transition hover:bg-amber-400"
-                        >
-                          View Product
-                        </Link>
-                      </div>
-                    </article>
+                      product={product}
+                    />
                   ))}
                 </div>
-              )}
+              ) : (
+                <div className="rounded-xl border border-dashed border-slate-300 bg-white px-6 py-16 text-center">
+                  <Package
+                    size={48}
+                    className="mx-auto text-slate-300"
+                  />
 
-              {/* Pagination */}
-              {!loading && !error && pagination.totalPages > 1 && (
-                <div className="mt-8 flex items-center justify-center gap-4">
-                  <button
-                    disabled={page <= 1}
-                    onClick={() => setPage((p) => p - 1)}
-                    className="flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm disabled:opacity-40"
+                  <h3 className="mt-4 text-lg font-bold text-slate-900">
+                    No Products Found
+                  </h3>
+
+                  <p className="mt-2 text-sm text-slate-500">
+                    Try another search term or select a different category.
+                  </p>
+
+                  <Link
+                    href="/products"
+                    className="mt-6 inline-flex rounded-lg bg-amber-400 px-5 py-3 text-sm font-bold text-slate-900 hover:bg-amber-500"
                   >
-                    <ChevronLeft size={17} />
-                    Previous
-                  </button>
-
-                  <span className="text-sm text-slate-600">
-                    Page {pagination.page} of {pagination.totalPages}
-                  </span>
-
-                  <button
-                    disabled={page >= pagination.totalPages}
-                    onClick={() => setPage((p) => p + 1)}
-                    className="flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm disabled:opacity-40"
-                  >
-                    Next
-                    <ChevronRight size={17} />
-                  </button>
+                    View All Products
+                  </Link>
                 </div>
               )}
-            </section>
+            </div>
           </div>
-        </div>
+        </section>
       </main>
 
       <Footer />
