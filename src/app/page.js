@@ -6,6 +6,15 @@ import CategorySection from "@/components/home/CategorySection";
 import FeaturedProducts from "@/components/home/FeaturedProducts";
 import WhyChooseUs from "@/components/home/WhyChooseUs";
 
+export const metadata = {
+  title: "TradeBridge – Connect with Indian Manufacturers and Suppliers",
+  description:
+    "Discover manufacturers, wholesalers, distributors and products across India. Connect with suppliers and get business quotations on TradeBridge.",
+  alternates: {
+    canonical: "/",
+  },
+};
+
 export default function HomePage() {
   return (
     <>

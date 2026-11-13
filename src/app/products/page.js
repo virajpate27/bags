@@ -15,6 +15,15 @@ import {
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 
+export const metadata = {
+  title: "Browse Products from Indian Suppliers",
+  description:
+    "Explore products from manufacturers, wholesalers and distributors across India. Find suppliers and request competitive quotations on TradeBridge.",
+  alternates: {
+    canonical: "/products",
+  },
+};
+
 export default function ProductsPage() {
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
