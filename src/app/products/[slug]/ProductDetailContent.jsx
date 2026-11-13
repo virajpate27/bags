@@ -21,6 +21,7 @@ import {
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import EnquiryForm from "@/components/products/EnquiryForm";
+import FavoriteButton from "@/components/products/FavoriteButton";
 
 export default function ProductDetailContent() {
   const params = useParams();
@@ -303,9 +304,12 @@ export default function ProductDetailContent() {
                   </span>
                 </div>
 
-                <h1 className="text-2xl font-bold leading-tight text-slate-900 sm:text-3xl">
-                  {product.name}
-                </h1>
+                <div className="flex items-start justify-between gap-4">
+                  <h1 className="text-2xl font-bold leading-tight text-slate-900 sm:text-3xl">
+                    {product.name}
+                  </h1>
+                  <FavoriteButton productId={product.id} className="shrink-0" />
+                </div>
 
                 {/* Price */}
                 <div className="mt-6 border-b border-slate-100 pb-6">

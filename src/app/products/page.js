@@ -12,6 +12,7 @@ import {
 import prisma from "@/lib/prisma";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
+import FavoriteButton from "@/components/products/FavoriteButton";
 
 export const dynamic = "force-dynamic";
 
@@ -193,18 +194,23 @@ function ProductCard({ product }) {
 
   return (
     <article className="group overflow-hidden rounded-xl border border-slate-200 bg-white transition duration-300 hover:-translate-y-1 hover:border-amber-300 hover:shadow-lg">
-      <Link href={`/products/${product.slug}`}>
-        <div className="relative flex aspect-[4/3] items-center justify-center overflow-hidden bg-slate-50 p-5">
-          {image ? (
-            <img src={image} alt={product.name} className="h-full w-full object-contain transition duration-300 group-hover:scale-105" />
-          ) : (
-            <Package size={52} strokeWidth={1.2} className="text-slate-300" />
-          )}
-          {supplier?.isVerified && (
-            <span className="absolute left-3 top-3 rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700">Verified Supplier</span>
-          )}
+      <div className="relative">
+        <Link href={`/products/${product.slug}`}>
+          <div className="relative flex aspect-[4/3] items-center justify-center overflow-hidden bg-slate-50 p-5">
+            {image ? (
+              <img src={image} alt={product.name} className="h-full w-full object-contain transition duration-300 group-hover:scale-105" />
+            ) : (
+              <Package size={52} strokeWidth={1.2} className="text-slate-300" />
+            )}
+            {supplier?.isVerified && (
+              <span className="absolute left-3 top-3 rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700">Verified Supplier</span>
+            )}
+          </div>
+        </Link>
+        <div className="absolute right-3 top-3 z-10">
+          <FavoriteButton productId={product.id} />
         </div>
-      </Link>
+      </div>
       <div className="p-4">
         {product.category?.name && <p className="mb-2 text-xs font-semibold text-amber-600">{product.category.name}</p>}
         <Link href={`/products/${product.slug}`}>

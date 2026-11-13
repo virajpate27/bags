@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
+import FavoriteButton from "@/components/products/FavoriteButton";
 
 export default function SupplierProfileContent({ supplierId }) {
   const [supplier, setSupplier] = useState(null);
@@ -267,7 +268,7 @@ export default function SupplierProfileContent({ supplierId }) {
                           key={product.id}
                           className="overflow-hidden rounded-xl border border-slate-200 bg-white transition hover:shadow-lg"
                         >
-                          <div className="flex h-44 items-center justify-center bg-slate-100">
+                          <div className="relative flex h-44 items-center justify-center bg-slate-100">
                             {product.images?.[0]?.imageUrl ? (
                               <img
                                 src={product.images[0].imageUrl}
@@ -277,6 +278,9 @@ export default function SupplierProfileContent({ supplierId }) {
                             ) : (
                               <Package size={45} className="text-slate-300" />
                             )}
+                            <div className="absolute right-3 top-3 z-10">
+                              <FavoriteButton productId={product.id} />
+                            </div>
                           </div>
 
                           <div className="p-5">
