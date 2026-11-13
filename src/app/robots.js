@@ -1,21 +1,17 @@
-
-const siteUrl =
-  process.env.NEXT_PUBLIC_SITE_URL || "https://lightseagreen-okapi-247533.hostingersite.com";
+import { absoluteUrl, getSiteUrl } from "@/lib/site-url";
 
 export default function robots() {
   return {
-    rules: {
-      userAgent: "*",
-      allow: "/",
-      disallow: [
-        "/api/",
-        "/admin/",
-        "/buyer/",
-        "/seller/",
-        "/login",
-        "/register",
-      ],
-    },
-    sitemap: `${siteUrl}/sitemap.xml`,
+    rules: [
+      {
+        userAgent: "*",
+        allow: "/",
+        // Private pages are marked noindex using X-Robots-Tag in next.config.mjs.
+        // Keep them crawlable so search engines can read that directive.
+        disallow: ["/api/"],
+      },
+    ],
+    sitemap: absoluteUrl("/sitemap.xml"),
+    host: getSiteUrl(),
   };
 }

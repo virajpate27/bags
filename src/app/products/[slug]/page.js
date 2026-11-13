@@ -1,10 +1,7 @@
-
 import { Suspense } from "react";
 import prisma from "@/lib/prisma";
+import { absoluteUrl } from "@/lib/site-url";
 import ProductDetailContent from "./ProductDetailContent";
-
-const siteUrl =
-  process.env.NEXT_PUBLIC_SITE_URL || "https://yourdomain.com";
 
 async function getProduct(slug) {
   return prisma.product.findFirst({
@@ -25,14 +22,43 @@ async function getProduct(slug) {
       description: true,
       price: true,
       unit: true,
+      category: {
+        select: {
+          name: true,
+        },
+      },
       images: {
-        take: 1,
+        take: 5,
         select: {
           imageUrl: true,
         },
       },
+      seller: {
+        select: {
+          supplierProfile: {
+            select: {
+              companyName: true,
+              city: true,
+              state: true,
+              status: true,
+            },
+          },
+        },
+      },
     },
   });
+}
+
+function getDescription(description, productName) {
+  const plainText = (description || "")
+    .replace(/<[^>]*>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return (
+    plainText.slice(0, 155) ||
+    `Explore ${productName} and request a quotation from its supplier on TradeBridge.`
+  );
 }
 
 export async function generateMetadata({ params }) {
@@ -42,7 +68,7 @@ export async function generateMetadata({ params }) {
   if (!product) {
     return {
       title: "Product Not Found",
-      description: "The requested product is unavailable.",
+      description: "The requested product is unavailable on TradeBridge.",
       robots: {
         index: false,
         follow: false,
@@ -50,30 +76,29 @@ export async function generateMetadata({ params }) {
     };
   }
 
-  const description =
-    product.description?.replace(/\s+/g, " ").slice(0, 155) ||
-    `Explore ${product.name} and request a quotation from suppliers on TradeBridge.`;
-
-  const image = product.images?.[0]?.imageUrl;
+  const description = getDescription(product.description, product.name);
+  const canonicalUrl = absoluteUrl(`/products/${product.slug}`);
+  const images = product.images.map((image) => image.imageUrl).filter(Boolean);
 
   return {
     title: product.name,
     description,
     alternates: {
-      canonical: `/products/${product.slug}`,
+      canonical: canonicalUrl,
     },
     openGraph: {
       type: "website",
       title: product.name,
       description,
-      url: `${siteUrl}/products/${product.slug}`,
-      images: image ? [{ url: image }] : [],
+      url: canonicalUrl,
+      siteName: "TradeBridge",
+      images,
     },
     twitter: {
-      card: image ? "summary_large_image" : "summary",
+      card: images.length ? "summary_large_image" : "summary",
       title: product.name,
       description,
-      images: image ? [image] : [],
+      images,
     },
   };
 }
@@ -87,22 +112,20 @@ export default async function ProductDetailPage({ params }) {
         "@context": "https://schema.org",
         "@type": "Product",
         name: product.name,
-        description: product.description,
-        image: product.images
-          .map((image) => image.imageUrl)
-          .filter(Boolean),
-        url: `${siteUrl}/products/${product.slug}`,
-        brand: {
-          "@type": "Brand",
-          name: "TradeBridge",
-        },
+        description: getDescription(product.description, product.name),
+        image: product.images.map((image) => image.imageUrl).filter(Boolean),
+        category: product.category?.name,
+        url: absoluteUrl(`/products/${product.slug}`),
         ...(product.price !== null && {
           offers: {
             "@type": "Offer",
             price: Number(product.price),
             priceCurrency: "INR",
-            availability: "https://schema.org/InStock",
-            url: `${siteUrl}/products/${product.slug}`,
+            url: absoluteUrl(`/products/${product.slug}`),
+            seller: {
+              "@type": "Organization",
+              name: product.seller?.supplierProfile?.companyName || "TradeBridge supplier",
+            },
           },
         }),
       }
@@ -118,10 +141,7 @@ export default async function ProductDetailPage({ params }) {
           }}
         />
       )}
-
-      <Suspense
-        fallback={<div className="min-h-screen bg-slate-50" />}
-      >
+      <Suspense fallback={<div className="min-h-screen bg-slate-50" />}>
         <ProductDetailContent />
       </Suspense>
     </>

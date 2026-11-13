@@ -1,51 +1,75 @@
-
 import prisma from "@/lib/prisma";
-
-const siteUrl =
-  process.env.NEXT_PUBLIC_SITE_URL || "https://lightseagreen-okapi-247533.hostingersite.com";
+import { absoluteUrl } from "@/lib/site-url";
 
 export default async function sitemap() {
-  const products = await prisma.product.findMany({
-    where: {
-      status: "ACTIVE",
-      seller: {
-        supplierProfile: {
-          is: {
-            status: "APPROVED",
+  const [products, suppliers] = await Promise.all([
+    prisma.product.findMany({
+      where: {
+        status: "ACTIVE",
+        seller: {
+          supplierProfile: {
+            is: {
+              status: "APPROVED",
+            },
           },
         },
       },
-    },
-    select: {
-      slug: true,
-      updatedAt: true,
-    },
-    orderBy: {
-      updatedAt: "desc",
-    },
-  });
+      select: {
+        slug: true,
+        updatedAt: true,
+      },
+      orderBy: {
+        updatedAt: "desc",
+      },
+    }),
+    prisma.supplierProfile.findMany({
+      where: {
+        status: "APPROVED",
+      },
+      select: {
+        id: true,
+        updatedAt: true,
+      },
+      orderBy: {
+        updatedAt: "desc",
+      },
+    }),
+  ]);
 
   const staticPages = [
     {
-      url: siteUrl,
+      url: absoluteUrl("/"),
       lastModified: new Date(),
       changeFrequency: "daily",
       priority: 1,
     },
     {
-      url: `${siteUrl}/products`,
+      url: absoluteUrl("/products"),
       lastModified: new Date(),
       changeFrequency: "daily",
       priority: 0.9,
     },
+    {
+      url: absoluteUrl("/suppliers"),
+      lastModified: new Date(),
+      changeFrequency: "daily",
+      priority: 0.8,
+    },
   ];
 
   const productPages = products.map((product) => ({
-    url: `${siteUrl}/products/${product.slug}`,
+    url: absoluteUrl(`/products/${product.slug}`),
     lastModified: product.updatedAt,
     changeFrequency: "weekly",
     priority: 0.8,
   }));
 
-  return [...staticPages, ...productPages];
+  const supplierPages = suppliers.map((supplier) => ({
+    url: absoluteUrl(`/suppliers/${supplier.id}`),
+    lastModified: supplier.updatedAt,
+    changeFrequency: "weekly",
+    priority: 0.7,
+  }));
+
+  return [...staticPages, ...productPages, ...supplierPages];
 }

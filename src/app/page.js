@@ -18,6 +18,8 @@ import prisma from "@/lib/prisma";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 
+export const dynamic = "force-dynamic";
+
 export const metadata = {
   title: "TradeBridge – Connect with Indian Manufacturers and Suppliers",
   description:
@@ -67,10 +69,12 @@ async function getHomepageData() {
           },
         },
       },
+      // updatedAt changes when an admin activates an older draft product.
+      // This brings newly activated products into the homepage's latest section.
       orderBy: {
-        createdAt: "desc",
+        updatedAt: "desc",
       },
-      take: 8,
+      take: 12,
     }),
   ]);
 
