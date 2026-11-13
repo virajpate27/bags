@@ -1,8 +1,7 @@
 
 import { NextResponse } from "next/server";
-import { headers } from "next/headers";
-import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { requireRole, getAuthorizationError } from "@/lib/permissions";
 
 const allowedBusinessTypes = [
   "MANUFACTURER",
@@ -15,14 +14,15 @@ const allowedBusinessTypes = [
 
 export async function POST(request) {
   try {
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
+    // Buyers can apply to become sellers; existing sellers can update
+    // their application. Admin accounts must never be downgraded here.
+    const access = await requireRole(["BUYER", "SELLER"]);
 
-    if (!session) {
+    if (access.error) {
+      const error = getAuthorizationError(access.error);
       return NextResponse.json(
-        { success: false, message: "Please login first." },
-        { status: 401 }
+        { success: false, message: error.message },
+        { status: error.status }
       );
     }
 
@@ -67,7 +67,7 @@ export async function POST(request) {
 
     await prisma.$transaction(async (tx) => {
       await tx.supplierProfile.upsert({
-        where: { userId: session.user.id },
+        where: { userId: access.user.id },
         update: {
           companyName,
           businessType,
@@ -81,7 +81,7 @@ export async function POST(request) {
           status: "PENDING",
         },
         create: {
-          userId: session.user.id,
+          userId: access.user.id,
           companyName,
           businessType,
           description,
@@ -96,7 +96,7 @@ export async function POST(request) {
       });
 
       await tx.user.update({
-        where: { id: session.user.id },
+        where: { id: access.user.id },
         data: { role: "SELLER" },
       });
     });

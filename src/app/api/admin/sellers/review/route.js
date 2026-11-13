@@ -1,23 +1,22 @@
-
 import { NextResponse } from "next/server";
-import { headers } from "next/headers";
-import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { getAdmin, adminError } from "@/lib/admin";
 
 export async function POST(request) {
   try {
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
+    const admin = await getAdmin();
 
-    if (!session || session.user.role !== "ADMIN") {
+    if (admin.error) {
+      const error = adminError(admin.error);
       return NextResponse.json(
-        { success: false, message: "Admin access required." },
-        { status: 403 }
+        { success: false, message: error.message },
+        { status: error.status }
       );
     }
 
-    const { profileId, decision } = await request.json();
+    const body = await request.json();
+    const profileId = body.profileId;
+    const decision = body.decision;
 
     if (
       typeof profileId !== "string" ||
@@ -31,6 +30,7 @@ export async function POST(request) {
 
     const profile = await prisma.supplierProfile.findUnique({
       where: { id: profileId },
+      select: { id: true, status: true },
     });
 
     if (!profile || profile.status !== "PENDING") {
@@ -54,7 +54,6 @@ export async function POST(request) {
     });
   } catch (error) {
     console.error("Seller review error:", error);
-
     return NextResponse.json(
       { success: false, message: "Unable to review seller." },
       { status: 500 }

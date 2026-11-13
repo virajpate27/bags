@@ -1,26 +1,16 @@
-
 import { NextResponse } from "next/server";
-import { headers } from "next/headers";
-import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { requireRole, getAuthorizationError } from "@/lib/permissions";
 
 export async function DELETE(request, { params }) {
   try {
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
+    const access = await requireRole("BUYER");
 
-    if (!session) {
+    if (access.error) {
+      const error = getAuthorizationError(access.error);
       return NextResponse.json(
-        { success: false, message: "Please login first." },
-        { status: 401 }
-      );
-    }
-
-    if (session.user.role !== "BUYER") {
-      return NextResponse.json(
-        { success: false, message: "Buyer access required." },
-        { status: 403 }
+        { success: false, message: error.message },
+        { status: error.status }
       );
     }
 
@@ -37,8 +27,9 @@ export async function DELETE(request, { params }) {
     const favorite = await prisma.favorite.findFirst({
       where: {
         id: favoriteId,
-        userId: session.user.id,
+        userId: access.user.id,
       },
+      select: { id: true },
     });
 
     if (!favorite) {
@@ -48,9 +39,7 @@ export async function DELETE(request, { params }) {
       );
     }
 
-    await prisma.favorite.delete({
-      where: { id: favoriteId },
-    });
+    await prisma.favorite.delete({ where: { id: favoriteId } });
 
     return NextResponse.json({
       success: true,
@@ -58,7 +47,6 @@ export async function DELETE(request, { params }) {
     });
   } catch (error) {
     console.error("Remove favourite error:", error);
-
     return NextResponse.json(
       { success: false, message: "Unable to remove favourite." },
       { status: 500 }

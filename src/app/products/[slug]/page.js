@@ -4,7 +4,7 @@ import prisma from "@/lib/prisma";
 import ProductDetailContent from "./ProductDetailContent";
 
 const siteUrl =
-  process.env.NEXT_PUBLIC_SITE_URL || "https://yourdomain.com";
+  process.env.NEXT_PUBLIC_SITE_URL || "https://lightseagreen-okapi-247533.hostingersite.com";
 
 async function getProduct(slug) {
   return prisma.product.findFirst({

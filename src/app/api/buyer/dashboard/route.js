@@ -1,30 +1,20 @@
-
 import { NextResponse } from "next/server";
-import { headers } from "next/headers";
-import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { requireRole, getAuthorizationError } from "@/lib/permissions";
 
 export async function GET() {
   try {
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
+    const access = await requireRole("BUYER");
 
-    if (!session) {
+    if (access.error) {
+      const error = getAuthorizationError(access.error);
       return NextResponse.json(
-        { success: false, message: "Please login first." },
-        { status: 401 }
+        { success: false, message: error.message },
+        { status: error.status }
       );
     }
 
-    if (session.user.role !== "BUYER") {
-      return NextResponse.json(
-        { success: false, message: "Buyer access required." },
-        { status: 403 }
-      );
-    }
-
-    const userId = session.user.id;
+    const userId = access.user.id;
 
     const [
       user,
@@ -46,50 +36,28 @@ export async function GET() {
           createdAt: true,
         },
       }),
-
-      prisma.enquiry.count({
-        where: { buyerId: userId },
-      }),
-
-      prisma.requirement.count({
-        where: { buyerId: userId },
-      }),
-
-      prisma.favorite.count({
-        where: { userId },
-      }),
-
+      prisma.enquiry.count({ where: { buyerId: userId } }),
+      prisma.requirement.count({ where: { buyerId: userId } }),
+      prisma.favorite.count({ where: { userId } }),
       prisma.enquiry.findMany({
         where: { buyerId: userId },
         include: {
-          product: {
-            select: {
-              id: true,
-              name: true,
-              slug: true,
-            },
-          },
+          product: { select: { id: true, name: true, slug: true } },
           seller: {
             select: {
               name: true,
-              supplierProfile: {
-                select: {
-                  companyName: true,
-                },
-              },
+              supplierProfile: { select: { companyName: true } },
             },
           },
         },
         orderBy: { createdAt: "desc" },
         take: 10,
       }),
-
       prisma.requirement.findMany({
         where: { buyerId: userId },
         orderBy: { createdAt: "desc" },
         take: 10,
       }),
-
       prisma.favorite.findMany({
         where: { userId },
         include: {
@@ -148,7 +116,6 @@ export async function GET() {
     });
   } catch (error) {
     console.error("Buyer dashboard error:", error);
-
     return NextResponse.json(
       { success: false, message: "Unable to load buyer dashboard." },
       { status: 500 }

@@ -1,31 +1,20 @@
-
 import { NextResponse } from "next/server";
-import { headers } from "next/headers";
-import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { requireRole, getAuthorizationError } from "@/lib/permissions";
 
 export async function PATCH(request) {
   try {
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
+    const access = await requireRole("BUYER");
 
-    if (!session) {
+    if (access.error) {
+      const error = getAuthorizationError(access.error);
       return NextResponse.json(
-        { success: false, message: "Please login first." },
-        { status: 401 }
-      );
-    }
-
-    if (session.user.role !== "BUYER") {
-      return NextResponse.json(
-        { success: false, message: "Buyer access required." },
-        { status: 403 }
+        { success: false, message: error.message },
+        { status: error.status }
       );
     }
 
     const body = await request.json();
-
     const name = String(body.name || "").trim();
     const phone = String(body.phone || "").trim();
 
@@ -44,11 +33,8 @@ export async function PATCH(request) {
     }
 
     const user = await prisma.user.update({
-      where: { id: session.user.id },
-      data: {
-        name,
-        phone: phone || null,
-      },
+      where: { id: access.user.id },
+      data: { name, phone: phone || null },
       select: {
         id: true,
         name: true,
@@ -65,7 +51,6 @@ export async function PATCH(request) {
     });
   } catch (error) {
     console.error("Buyer profile update error:", error);
-
     return NextResponse.json(
       { success: false, message: "Unable to update profile." },
       { status: 500 }
