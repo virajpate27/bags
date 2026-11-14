@@ -40,6 +40,13 @@ enum RequirementStatus {
   CLOSED
 }
 
+enum RequirementQuoteStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  WITHDRAWN
+}
+
 enum SellerStatus {
   PENDING
   APPROVED
@@ -62,6 +69,7 @@ model User {
   buyerEnquiries  Enquiry[]        @relation("BuyerEnquiries")
   sellerEnquiries Enquiry[]        @relation("SellerEnquiries")
   requirements    Requirement[]
+  requirementQuotes RequirementQuote[]
   favorites       Favorite[]
   sessions        Session[]
   accounts        Account[]
@@ -167,8 +175,30 @@ model Requirement {
   updatedAt   DateTime          @updatedAt
 
   buyer User @relation(fields: [buyerId], references: [id], onDelete: Cascade)
+  quotes RequirementQuote[]
 
   @@index([buyerId])
+  @@index([status])
+}
+
+model RequirementQuote {
+  id             String                @id @default(cuid())
+  requirementId  String
+  sellerId       String
+  price          Decimal               @db.Decimal(12, 2)
+  quantity       Int?
+  deliveryTime   String
+  validityDays   Int                   @default(7)
+  message        String                @db.Text
+  status         RequirementQuoteStatus @default(PENDING)
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+
+  requirement Requirement @relation(fields: [requirementId], references: [id], onDelete: Cascade)
+  seller      User        @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+
+  @@unique([requirementId, sellerId])
+  @@index([sellerId])
   @@index([status])
 }
 

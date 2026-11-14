@@ -114,7 +114,7 @@ export default function RequirementsMarketplace() {
                   <span className="inline-flex items-center gap-2"><MapPin size={16} /> {item.location || "Location not specified"}</span>
                 </div>
                 <div className="mt-4 flex justify-end">
-                  <Link href="/login" className="rounded-lg border border-amber-400 px-4 py-2 text-sm font-semibold text-slate-900 hover:bg-amber-50">Login to respond</Link>
+                  <Link href={`/seller/requirements/${item.id}/quote`} className="rounded-lg border border-amber-400 px-4 py-2 text-sm font-semibold text-slate-900 hover:bg-amber-50">Submit quotation</Link>
                 </div>
               </article>
             ))}

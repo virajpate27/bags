@@ -81,6 +81,20 @@ export default function RequirementsContent() {
     }
   }
 
+
+  async function reviewQuote(id, status) {
+    setMessage("");
+    try {
+      const response = await fetch(`/api/buyer/quotes/${id}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.message || "Unable to review quotation.");
+      setMessage(result.message);
+      await loadRequirements();
+    } catch (error) { setMessage(error.message); }
+  }
+
   async function updateStatus(id, status) {
     setMessage("");
 
@@ -233,14 +247,35 @@ export default function RequirementsContent() {
                     </span>
                   </div>
 
+                  {item.quotes?.length > 0 && (
+                    <div className="mt-5 border-t pt-4">
+                      <h4 className="font-semibold">Seller quotations ({item.quotes.length})</h4>
+                      <div className="mt-3 space-y-3">
+                        {item.quotes.map((quote) => (
+                          <div key={quote.id} className="rounded-lg border bg-slate-50 p-4">
+                            <div className="flex flex-wrap items-start justify-between gap-2">
+                              <div>
+                                <p className="font-semibold">{quote.seller.supplierProfile?.companyName || quote.seller.name}</p>
+                                <p className="text-xs text-gray-500">{[quote.seller.supplierProfile?.city, quote.seller.supplierProfile?.state].filter(Boolean).join(", ")}</p>
+                              </div>
+                              <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold">{quote.status}</span>
+                            </div>
+                            <p className="mt-2 text-lg font-bold">₹{Number(quote.price).toLocaleString("en-IN")}</p>
+                            <p className="text-sm text-gray-600">Quantity: {quote.quantity ?? "Not specified"} · Delivery: {quote.deliveryTime} · Valid: {quote.validityDays} days</p>
+                            <p className="mt-2 whitespace-pre-wrap text-sm">{quote.message}</p>
+                            {quote.status === "PENDING" && item.status === "OPEN" && (
+                              <div className="mt-3 flex flex-wrap gap-2">
+                                <button onClick={() => reviewQuote(quote.id, "ACCEPTED")} className="rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white">Accept quotation</button>
+                                <button onClick={() => reviewQuote(quote.id, "REJECTED")} className="rounded-lg border px-3 py-2 text-sm">Reject</button>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                   <div className="mt-4">
-                    <button
-                      disabled={item.status === "CLOSED"}
-                      onClick={() => updateStatus(item.id, "CLOSED")}
-                      className="rounded-lg border px-4 py-2 text-sm disabled:opacity-40"
-                    >
-                      Close Requirement
-                    </button>
+                    <button disabled={item.status === "CLOSED"} onClick={() => updateStatus(item.id, "CLOSED")} className="rounded-lg border px-4 py-2 text-sm disabled:opacity-40">Close Requirement</button>
                   </div>
                 </article>
               ))}
