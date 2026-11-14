@@ -1,22 +1,35 @@
+
 import { NextResponse } from "next/server";
+import { headers } from "next/headers";
+import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
-import { getAdmin, adminError } from "@/lib/admin";
+import { emailLayout, safeEmailText, sendEmail } from "@/lib/email";
 
 export async function POST(request) {
   try {
-    const admin = await getAdmin();
+    const session = await auth.api.getSession({
+      headers: await headers(),
+    });
 
-    if (admin.error) {
-      const error = adminError(admin.error);
+    if (!session?.user?.id) {
       return NextResponse.json(
-        { success: false, message: error.message },
-        { status: error.status }
+        { success: false, message: "Admin access required." },
+        { status: 403 }
       );
     }
 
-    const body = await request.json();
-    const profileId = body.profileId;
-    const decision = body.decision;
+    const admin = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { role: true },
+    });
+    if (admin?.role !== "ADMIN") {
+      return NextResponse.json(
+        { success: false, message: "Admin access required." },
+        { status: 403 }
+      );
+    }
+
+    const { profileId, decision } = await request.json();
 
     if (
       typeof profileId !== "string" ||
@@ -30,7 +43,7 @@ export async function POST(request) {
 
     const profile = await prisma.supplierProfile.findUnique({
       where: { id: profileId },
-      select: { id: true, status: true },
+      include: { user: { select: { emailVerified: true } } },
     });
 
     if (!profile || profile.status !== "PENDING") {
@@ -40,12 +53,32 @@ export async function POST(request) {
       );
     }
 
-    await prisma.supplierProfile.update({
+    if (decision === "APPROVED" && !profile.user.emailVerified) {
+      return NextResponse.json(
+        { success: false, message: "This seller must verify their email before approval." },
+        { status: 409 }
+      );
+    }
+
+    const updatedProfile = await prisma.supplierProfile.update({
       where: { id: profileId },
       data: {
         status: decision,
         isVerified: decision === "APPROVED",
       },
+      include: { user: { select: { name: true, email: true } } },
+    });
+
+    const approved = decision === "APPROVED";
+    const statusMessage = approved
+      ? "Your seller application has been approved. You can now access seller features and submit quotations."
+      : "Your seller application was not approved at this time. Please contact TradeBridge support if you need clarification.";
+    const content = `<p>Hello ${safeEmailText(updatedProfile.user.name || "Seller")},</p><p>${statusMessage}</p><p><strong>Company:</strong> ${safeEmailText(updatedProfile.companyName)}</p><p><strong>Status:</strong> ${decision}</p>`;
+    await sendEmail({
+      to: updatedProfile.user.email,
+      subject: `TradeBridge seller application ${approved ? "approved" : "update"}`,
+      text: `Hello ${updatedProfile.user.name || "Seller"}, ${statusMessage} Company: ${updatedProfile.companyName}. Status: ${decision}.`,
+      html: emailLayout(`Seller application ${approved ? "approved" : "not approved"}`, content),
     });
 
     return NextResponse.json({
@@ -54,6 +87,7 @@ export async function POST(request) {
     });
   } catch (error) {
     console.error("Seller review error:", error);
+
     return NextResponse.json(
       { success: false, message: "Unable to review seller." },
       { status: 500 }

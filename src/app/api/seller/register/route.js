@@ -1,7 +1,9 @@
 
 import { NextResponse } from "next/server";
+import { headers } from "next/headers";
+import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
-import { requireRole, getAuthorizationError } from "@/lib/permissions";
+import { emailLayout, safeEmailText, sendEmail } from "@/lib/email";
 
 const allowedBusinessTypes = [
   "MANUFACTURER",
@@ -14,15 +16,25 @@ const allowedBusinessTypes = [
 
 export async function POST(request) {
   try {
-    // Buyers can apply to become sellers; existing sellers can update
-    // their application. Admin accounts must never be downgraded here.
-    const access = await requireRole(["BUYER", "SELLER"]);
+    const session = await auth.api.getSession({
+      headers: await headers(),
+    });
 
-    if (access.error) {
-      const error = getAuthorizationError(access.error);
+    if (!session) {
       return NextResponse.json(
-        { success: false, message: error.message },
-        { status: error.status }
+        { success: false, message: "Please login first." },
+        { status: 401 }
+      );
+    }
+
+    const account = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { emailVerified: true },
+    });
+    if (!account?.emailVerified) {
+      return NextResponse.json(
+        { success: false, message: "Please verify your email address before applying as a seller." },
+        { status: 403 }
       );
     }
 
@@ -67,7 +79,7 @@ export async function POST(request) {
 
     await prisma.$transaction(async (tx) => {
       await tx.supplierProfile.upsert({
-        where: { userId: access.user.id },
+        where: { userId: session.user.id },
         update: {
           companyName,
           businessType,
@@ -81,7 +93,7 @@ export async function POST(request) {
           status: "PENDING",
         },
         create: {
-          userId: access.user.id,
+          userId: session.user.id,
           companyName,
           businessType,
           description,
@@ -96,10 +108,25 @@ export async function POST(request) {
       });
 
       await tx.user.update({
-        where: { id: access.user.id },
+        where: { id: session.user.id },
         data: { role: "SELLER" },
       });
     });
+
+    const applicant = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { name: true, email: true },
+    });
+
+    if (process.env.ADMIN_NOTIFICATION_EMAIL) {
+      const adminContent = `<p>A new seller application has been submitted on TradeBridge.</p><p><strong>Applicant:</strong> ${safeEmailText(applicant?.name || "")}</p><p><strong>Company:</strong> ${safeEmailText(companyName)}</p><p><strong>Business type:</strong> ${businessType}</p><p><strong>Location:</strong> ${city}, ${state}</p><p>Please review the application in the admin dashboard.</p>`;
+      await sendEmail({
+        to: process.env.ADMIN_NOTIFICATION_EMAIL,
+        subject: "New seller application on TradeBridge",
+        text: `New seller application: ${companyName}, ${city}, ${state}. Please review it in the admin dashboard.`,
+        html: emailLayout("New seller application", adminContent),
+      });
+    }
 
     return NextResponse.json({
       success: true,

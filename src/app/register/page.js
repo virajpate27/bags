@@ -15,6 +15,9 @@ export default function RegisterPage() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [registeredEmail, setRegisteredEmail] = useState("");
+  const [resendMessage, setResendMessage] = useState("");
+  const [resendLoading, setResendLoading] = useState(false);
 
   async function handleRegister(e) {
     e.preventDefault();
@@ -40,6 +43,11 @@ export default function RegisterPage() {
         return;
       }
 
+      if (process.env.NEXT_PUBLIC_REQUIRE_EMAIL_VERIFICATION === "true") {
+        setRegisteredEmail(email);
+        return;
+      }
+
       router.push("/buyer/dashboard");
       router.refresh();
     } catch {
@@ -47,6 +55,38 @@ export default function RegisterPage() {
     } finally {
       setLoading(false);
     }
+  }
+
+  async function resendVerification() {
+    if (!registeredEmail) return;
+    setResendLoading(true);
+    setResendMessage("");
+    try {
+      const { error: resendError } = await authClient.sendVerificationEmail({
+        email: registeredEmail,
+        callbackURL: "/buyer/dashboard",
+      });
+      setResendMessage(resendError ? (resendError.message || "Unable to resend the email.") : "If the address is registered, a verification email has been sent.");
+    } catch {
+      setResendMessage("Unable to resend the verification email. Please try again.");
+    } finally {
+      setResendLoading(false);
+    }
+  }
+
+  if (registeredEmail) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-12">
+        <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
+          <Link href="/" className="text-2xl font-bold text-slate-900">Trade<span className="text-amber-500">Bridge</span></Link>
+          <h1 className="mt-8 text-2xl font-bold text-slate-900">Verify your email</h1>
+          <p className="mt-3 text-sm leading-6 text-slate-600">We have created your account request. Check <strong>{registeredEmail}</strong> for a verification link before logging in. The link expires in one hour.</p>
+          <button type="button" onClick={resendVerification} disabled={resendLoading} className="mt-6 w-full rounded-lg bg-amber-400 px-5 py-3 font-semibold text-slate-950 disabled:opacity-60">{resendLoading ? "Sending..." : "Resend verification email"}</button>
+          {resendMessage && <p role="status" className="mt-3 text-sm text-slate-600">{resendMessage}</p>}
+          <p className="mt-6 text-center text-sm text-slate-500">Already verified? <Link href="/login" className="font-semibold text-amber-600">Login</Link></p>
+        </div>
+      </main>
+    );
   }
 
   return (
